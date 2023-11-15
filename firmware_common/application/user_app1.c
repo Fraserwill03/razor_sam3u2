@@ -92,6 +92,16 @@ Promises:
 */
 void UserApp1Initialize(void)
 {
+  //Initialize all LEDs to off
+  LedOff(CYAN);
+  LedOff(GREEN);
+  LedOff(YELLOW);
+  LedOff(ORANGE);
+  LedOff(PURPLE);
+  LedOff(RED);
+  LedOff(BLUE);
+  LedOff(WHITE);
+
   /* If good initialization, set state to Idle */
   if( 1 )
   {
@@ -139,15 +149,88 @@ State Machine Function Definitions
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* What does this state do? */
 static void UserApp1SM_Idle(void)
-{
+{       
+  LedRateType aeRate[] = {LED_1HZ, LED_2HZ, LED_4HZ, LED_8HZ};
+  static u8 u8BlinkRateIndex = 0;
+  static bool bYellowBlink = 0;
+  
+  if(IsButtonPressed(BUTTON0)) 
+  {
+    LedOn(WHITE);
+  } 
+  else 
+  {
+    LedOff(WHITE);
+  }
+  
+  if(WasButtonPressed(BUTTON1))
+  {
+    ButtonAcknowledge(BUTTON1);
     
+    if(bYellowBlink)
+    {
+      bYellowBlink = FALSE;
+      LedOff(YELLOW);
+    } 
+    else 
+    {
+      bYellowBlink = TRUE;
+      LedBlink(YELLOW, aeRate[u8BlinkRateIndex]);
+    }
+  }
+  
+  if(IsButtonHeld(BUTTON3, 2000)) 
+  {
+    LedOn(CYAN);
+  } 
+  else 
+  {
+    LedOff(CYAN);
+  }
+  
+  /* Instantly turn on purple and blue LEDs */
+  if(IsButtonPressed(BUTTON1))
+  {
+    LedOn(PURPLE);
+  }
+  else
+  {
+    LedOff(PURPLE);
+  }
+  
+  if(IsButtonPressed(BUTTON2))
+  {
+    LedOn(BLUE);
+  }
+  else
+  {
+    LedOff(BLUE);
+  }
+  
+  if(WasButtonPressed(BUTTON2))
+  {
+    ButtonAcknowledge(BUTTON2);
+    
+    if(bYellowBlink) {
+      
+      if(u8BlinkRateIndex == 3){
+        u8BlinkRateIndex = 0;
+      } else {
+        u8BlinkRateIndex++;
+      }
+      
+      LedBlink(YELLOW, aeRate[u8BlinkRateIndex]);
+    }
+  }
+     
 } /* end UserApp1SM_Idle() */
      
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Handle an error */
-static void UserApp1SM_Error(void)          
+static void UserApp1SM_Error(void)
 {
+
   
 } /* end UserApp1SM_Error() */
 
