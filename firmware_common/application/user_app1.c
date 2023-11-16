@@ -45,7 +45,7 @@ All Global variable names shall start with "G_<type>UserApp1"
 ***********************************************************************************************************************/
 /* New variables */
 volatile u32 G_u32UserApp1Flags;                          /*!< @brief Global state flags */
-
+static u8 G_au8Password[10] = {1, 2, 3, 0, 0, 0, 0, 0, 0, 0}; /* Password, init to default */
 
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* Existing variables (defined in other files -- should all contain the "extern" keyword) */
@@ -68,7 +68,71 @@ Function Definitions
 **********************************************************************************************************************/
 
 /*--------------------------------------------------------------------------------------------------------------------*/
-/*! @publicsection */                                                                                            
+/*! @publicsection */ 
+bool checkPassword(u8 au8Password[], u8 au8EnteredPassword[])
+{
+  for(u8 i = 0; i < 10; i++) {
+    if(au8EnteredPassword[i] != au8Password[i])
+      return FALSE;
+  }
+  return TRUE;
+}
+
+bool enterPassword(u8 au8Password[]) { 
+  static bool bBlueOn = FALSE;
+  static u8 u8Index = 0;
+  static bool bWhiteOn = FALSE;
+  
+  if(bWhiteOn)
+    LedOff(WHITE);
+  
+  if(u8Index != 10){
+    //Check if buttons were pressed
+    if(WasButtonPressed(BUTTON0)) {
+      ButtonAcknowledge(BUTTON0);
+      au8Password[u8Index] = 1;
+      u8Index++;
+    }
+    if(WasButtonPressed(BUTTON1)) {
+      ButtonAcknowledge(BUTTON1);
+      au8Password[u8Index] = 2;
+      u8Index++;
+    }
+    if(WasButtonPressed(BUTTON2)) {
+      ButtonAcknowledge(BUTTON2);
+      au8Password[u8Index] = 3;
+      u8Index++;
+    }
+  } 
+  else {
+    // If password is at max digits blink blue
+    if(!bBlueOn) {
+      LedBlink(BLUE, LED_2HZ);
+      bBlueOn = TRUE;
+    }
+  }
+  
+  if(IsButtonHeld(BUTTON0, 2000) && IsButtonHeld(BUTTON1, 2000)){
+    LedOff(BLUE);
+    bBlueOn = FALSE;
+    // Reset password and index
+    for(u8 u8i = 0; u8i < 10; u8i++) {
+      au8Password[u8i] = 0;
+    }
+    u8Index = 0;
+    LedOn(WHITE);
+    bWhiteOn = TRUE;
+  }
+  //Lastly check if button 3 was pressed
+  if(WasButtonPressed(BUTTON3)) {
+    ButtonAcknowledge(BUTTON3);
+    LedOff(BLUE);
+    bBlueOn = FALSE;
+    u8Index = 0;
+    return TRUE;
+  }
+  return FALSE;
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -105,7 +169,7 @@ void UserApp1Initialize(void)
   /* If good initialization, set state to Idle */
   if( 1 )
   {
-    UserApp1_pfStateMachine = UserApp1SM_Idle;
+    UserApp1_pfStateMachine = ButtonExercise_StartUp;
   }
   else
   {
@@ -147,83 +211,92 @@ void UserApp1RunActiveState(void)
 State Machine Function Definitions
 **********************************************************************************************************************/
 /*-------------------------------------------------------------------------------------------------------------------*/
-/* What does this state do? */
-static void UserApp1SM_Idle(void)
-{       
-  LedRateType aeRate[] = {LED_1HZ, LED_2HZ, LED_4HZ, LED_8HZ};
-  static u8 u8BlinkRateIndex = 0;
-  static bool bYellowBlink = 0;
-  
-  if(IsButtonPressed(BUTTON0)) 
-  {
-    LedOn(WHITE);
-  } 
-  else 
-  {
-    LedOff(WHITE);
-  }
-  
-  if(WasButtonPressed(BUTTON1))
-  {
-    ButtonAcknowledge(BUTTON1);
+static void ButtonExercise_StartUp(void)
+{
+  LedOn(YELLOW);
+  // 3 second timer
+  static u16 u16Counter = 0;
+  if(u16Counter < 3000) {
+    //Check if button was pressed
+    if(WasButtonPressed(BUTTON3)){
+      // Acknowledge and set state to settings
+      ButtonAcknowledge(BUTTON3);
     
-    if(bYellowBlink)
-    {
-      bYellowBlink = FALSE;
+      UserApp1_pfStateMachine = ButtonExercise_Setting;
       LedOff(YELLOW);
-    } 
-    else 
-    {
-      bYellowBlink = TRUE;
-      LedBlink(YELLOW, aeRate[u8BlinkRateIndex]);
+    }
+    //Increment counter
+    u16Counter++;
+  }
+  // If it has been 3 seconds set state to locked
+  else {
+    UserApp1_pfStateMachine = ButtonExercise_Locked;
+    LedOff(YELLOW);
+  }
+}
+
+static void ButtonExercise_Setting(void)
+{
+  // This is so that LedBlink is only called once
+  static bool bLedsOn = FALSE;
+  if(!bLedsOn) {
+    LedBlink(RED, LED_1HZ);
+    LedBlink(GREEN, LED_1HZ);
+    bLedsOn = TRUE;
+  }
+  if(enterPassword(G_au8Password)) {
+    // if new password was set, set next state to locked
+    // And stop yellow light
+    UserApp1_pfStateMachine = ButtonExercise_Locked;
+    LedOff(RED);
+    LedOff(GREEN);
+    bLedsOn = FALSE;
+  }
+}
+
+static void ButtonExercise_Locked(void)
+{
+  static bool bRedOn = FALSE;
+  static u8 au8EnteredPassword[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  
+  if(!bRedOn) {
+    LedOn(RED);
+    bRedOn = TRUE;
+  }
+  
+  if(enterPassword(au8EnteredPassword)) {
+    if(checkPassword(G_au8Password, au8EnteredPassword)){
+      LedOff(RED);
+      bRedOn = FALSE;
+      LedBlink(GREEN, LED_4HZ);
+      UserApp1_pfStateMachine = ButtonExercise_Idle;
+    }
+    else {
+      LedOff(RED);
+      LedBlink(RED, LED_4HZ);
+      bRedOn = FALSE;
+      UserApp1_pfStateMachine = ButtonExercise_Idle;
+    }
+    //Reset entered password
+    for(u8 i = 0; i < 10; i++){
+      au8EnteredPassword[i] = 0;
     }
   }
-  
-  if(IsButtonHeld(BUTTON3, 2000)) 
-  {
-    LedOn(CYAN);
-  } 
-  else 
-  {
-    LedOff(CYAN);
-  }
-  
-  /* Instantly turn on purple and blue LEDs */
-  if(IsButtonPressed(BUTTON1))
-  {
-    LedOn(PURPLE);
-  }
-  else
-  {
-    LedOff(PURPLE);
-  }
-  
-  if(IsButtonPressed(BUTTON2))
-  {
-    LedOn(BLUE);
-  }
-  else
-  {
-    LedOff(BLUE);
-  }
-  
-  if(WasButtonPressed(BUTTON2))
-  {
-    ButtonAcknowledge(BUTTON2);
-    
-    if(bYellowBlink) {
-      
-      if(u8BlinkRateIndex == 3){
-        u8BlinkRateIndex = 0;
-      } else {
-        u8BlinkRateIndex++;
-      }
-      
-      LedBlink(YELLOW, aeRate[u8BlinkRateIndex]);
+}
+
+/* What does this state do? */
+static void ButtonExercise_Idle(void)
+{       
+  static ButtonNameType aeButtons[4] = {BUTTON0, BUTTON1, BUTTON2, BUTTON3};
+  for(u8 u8i = 0; u8i < 4; u8i++){
+    if(WasButtonPressed(aeButtons[u8i])){
+    ButtonAcknowledge(aeButtons[u8i]);
+    LedOff(RED);
+    LedOff(GREEN);
+    UserApp1_pfStateMachine = ButtonExercise_Locked;
     }
   }
-     
-} /* end UserApp1SM_Idle() */
+} /* end ButtonExercise_Unlocked() */
      
 
 /*-------------------------------------------------------------------------------------------------------------------*/

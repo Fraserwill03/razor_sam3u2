@@ -28,7 +28,9 @@ Function Declarations
 **********************************************************************************************************************/
 
 /*------------------------------------------------------------------------------------------------------------------*/
-/*! @publicsection */                                                                                            
+/*! @publicsection */    
+bool checkPassword(u8 au8Password[], u8 au8EnteredPassword[]);
+bool enterPassword(u8 au8Password[]);
 /*--------------------------------------------------------------------------------------------------------------------*/
 
 
@@ -47,7 +49,10 @@ void UserApp1RunActiveState(void);
 /***********************************************************************************************************************
 State Machine Declarations
 ***********************************************************************************************************************/
-static void UserApp1SM_Idle(void);    
+static void ButtonExercise_StartUp(void);
+static void ButtonExercise_Idle(void);
+static void ButtonExercise_Locked(void);
+static void ButtonExercise_Setting(void);
 static void UserApp1SM_Error(void);         
 
 
