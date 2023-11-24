@@ -38,6 +38,7 @@ PROTECTED FUNCTIONS
 **********************************************************************************************************************/
 
 #include "configuration.h"
+#include "music.h"
 
 /***********************************************************************************************************************
 Global variable definitions with scope across entire project.
@@ -92,6 +93,7 @@ Promises:
 */
 void UserApp1Initialize(void)
 {
+    PWMAudioSetFrequency(BUZZER1, 500);
   /* If good initialization, set state to Idle */
   if( 1 )
   {
@@ -138,11 +140,104 @@ State Machine Function Definitions
 **********************************************************************************************************************/
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* What does this state do? */
-static void UserApp1SM_Idle(void)
+static void BuzzerBasic(void)
 {
-    
-} /* end UserApp1SM_Idle() */
-     
+  if(WasButtonPressed(BUTTON0)) {
+    ButtonAcknowledge(BUTTON0);
+    PWMAudioSetFrequency(BUZZER1, 262);
+  }
+  
+    if(WasButtonPressed(BUTTON1)) {
+    ButtonAcknowledge(BUTTON1);
+    PWMAudioSetFrequency(BUZZER1, 294);
+  }
+  
+    if(WasButtonPressed(BUTTON2)) {
+    ButtonAcknowledge(BUTTON2);
+    PWMAudioSetFrequency(BUZZER1, 330);
+  }
+  
+    if(WasButtonPressed(BUTTON3)) {
+    ButtonAcknowledge(BUTTON3);
+    PWMAudioSetFrequency(BUZZER1, 392);
+  }
+  
+  if(IsButtonPressed(BUTTON0) || IsButtonPressed(BUTTON1) ||
+     IsButtonPressed(BUTTON2) || IsButtonPressed(BUTTON3)) {
+    PWMAudioOn(BUZZER1);
+  } 
+  else {
+    PWMAudioOff(BUZZER1);
+  }
+} 
+
+static void UserApp1SM_Idle(void) {
+  static u8 au8NoteBuffer[DEBUG_SCANF_BUFFER_SIZE];
+  static u16 au16PlayBuffer[DEBUG_SCANF_BUFFER_SIZE];
+  static u8 u8CurrNote = 0;
+  static u8 u8PlayBufferLength =  0;
+  
+  //Copy to input buffer
+  u8 u8BuffCount = DebugScanf(au8NoteBuffer);
+  
+  // If its reached the max clear it
+  if(u8CurrNote == DEBUG_SCANF_BUFFER_SIZE) {
+    for(u8 i = 0; i < DEBUG_SCANF_BUFFER_SIZE; i++) {
+      au16PlayBuffer[i] = 0;
+    }
+    u8CurrNote = 0;
+    u8PlayBufferLength= 0;
+  }
+  
+  // Append Notes to another buffer
+  if(u8BuffCount > 0){
+    switch(au8NoteBuffer[u8BuffCount])
+    {
+    case 'z':
+      au16PlayBuffer[u8PlayBufferLength++] = C3;
+      break;
+    case 'x':
+      au16PlayBuffer[u8PlayBufferLength++] = D3;
+      break;
+    case 'c':
+      au16PlayBuffer[u8PlayBufferLength++] = E3;
+      break;
+    case 'v':
+      au16PlayBuffer[u8PlayBufferLength++] = F3;
+      break;
+    case 'b':
+      au16PlayBuffer[u8PlayBufferLength++] = G3;
+      break;
+    case 'n':
+      au16PlayBuffer[u8PlayBufferLength++] = A3;
+      break;
+    case 'm':
+      au16PlayBuffer[u8PlayBufferLength++] = B3;
+      break;
+    }
+  }
+  
+  
+  // Play a note
+  static u16 u16Timer = 0;
+  static bool playing = FALSE;
+  
+  if(u16Timer < QUARTER_NOTE && playing) {
+    u16Timer++;
+  }
+  else {
+    u16Timer = 0;
+    playing = FALSE;
+    PWMAudioOff(BUZZER1);
+  }
+  
+  if(au16PlayBuffer[u8CurrNote] != 0 && !playing) {
+    playing = TRUE;
+    PWMAudioSetFrequency(BUZZER1, au16PlayBuffer[u8CurrNote++]);
+    PWMAudioOn(BUZZER1);
+  }
+  return;
+}
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Handle an error */
