@@ -190,39 +190,20 @@ static void UserApp1SM_Exercise_Idle(void) {
       // Successfully reached end of name
       if(j == 4){
         u8NameCount++;
-        u8* au8LS = (u8*)malloc((u8NameCount + 1) * sizeof(u8));
-        u8* au8RS = (u8*)malloc((u8NameCount + 3) * sizeof(u8));
+        u8* au8Stars = (u8*)malloc((u8NameCount + 1) * sizeof(u8));
 
-        //au8LS[0] = '\r';
-        //au8LS[1] = '\n';
         for(u8 i = 0; i < u8NameCount; i++) {
-          au8LS[i] = '*';
+          au8Stars[i] = '*';
         }
-        au8LS[u8NameCount] = '\0';
-        //au8LS[u8NameCount + 3] = '\0';
-        
-        for(u8 i = 0; i < u8NameCount; i++) {
-          au8RS[i] = '*';
-        }  
-        au8RS[u8NameCount] = '\r';
-        au8RS[u8NameCount + 1] = '\n';
-        au8RS[u8NameCount + 2] = '\0';
+        au8Stars[u8NameCount] = '\0';
         
         DebugPrintf("\r\n");
-        DebugPrintf(au8LS);
-        /*for(u8 i = 0; i < u8NameCount; i++){
-          DebugPrintf("*");
-        } */
+        DebugPrintf(au8Stars);
         DebugPrintNumber((u32) u8NameCount);
-        /*for(u8 i = 0; i < u8NameCount; i++){
-          DebugPrintf("*");
-        }        
-        DebugPrintf("\r\n\0");*/
-        DebugPrintf(au8LS);
+        DebugPrintf(au8Stars);
         DebugLineFeed();
         j = 0;
-        free(au8LS);
-        free(au8RS);
+        free(au8Stars);
        }
     } else {
       // Reset letter matching count
