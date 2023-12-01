@@ -45,6 +45,7 @@ All Global variable names shall start with "G_<type>UserApp1"
 ***********************************************************************************************************************/
 /* New variables */
 volatile u32 G_u32UserApp1Flags;                          /*!< @brief Global state flags */
+static u8 au8User1Buffer[USER1_INPUT_BUFFER_SIZE];
 
 
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -53,6 +54,9 @@ extern volatile u32 G_u32SystemTime1ms;                   /*!< @brief From main.
 extern volatile u32 G_u32SystemTime1s;                    /*!< @brief From main.c */
 extern volatile u32 G_u32SystemFlags;                     /*!< @brief From main.c */
 extern volatile u32 G_u32ApplicationFlags;                /*!< @brief From main.c */
+
+extern  u8 G_u8DebugScanfCharCount;                      /* From Debug.c */
+extern u8 G_au8DebugScanfBuffer[];                         /* From Debug.c */
 
 
 /***********************************************************************************************************************
@@ -92,10 +96,16 @@ Promises:
 */
 void UserApp1Initialize(void)
 {
+  //for(u16 i = 0; i < USER1_INPUT_BUFFER_SIZE; i++){
+    //au8User1Buffer[i] = 0;
+  //}
+  
+  DebugSetPassthrough();
+  
   /* If good initialization, set state to Idle */
   if( 1 )
   {
-    UserApp1_pfStateMachine = UserApp1SM_Idle;
+    UserApp1_pfStateMachine = UserApp1SM_Exercise_Idle;
   }
   else
   {
@@ -138,10 +148,90 @@ State Machine Function Definitions
 **********************************************************************************************************************/
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* What does this state do? */
-static void UserApp1SM_Idle(void)
+static void UserApp1SM_Module_Idle(void)
 {
+  static u8 au8String1[] = "\n\rNumber in buffer: ";
+  static u8 au8String2[] = "\n\rBuffer contents:\n\r";
+  // Print number of chars in buffer if button 0 pressed
+  if(WasButtonPressed(BUTTON0)){
+    ButtonAcknowledge(BUTTON0);
+    DebugPrintf(au8String1);
+    DebugPrintNumber((u32) G_u8DebugScanfCharCount);
+    DebugLineFeed();
+  }
+  
+  // Read and echo the buffer back to the terminal
+  if(WasButtonPressed(BUTTON1)){
+    ButtonAcknowledge(BUTTON1);
+    u32 u32NumCopied = DebugScanf(au8User1Buffer);
+    au8User1Buffer[u32NumCopied] = 0;
     
+    DebugPrintf(au8String2);
+    DebugPrintf(au8User1Buffer);
+    DebugLineFeed();
+  }
 } /* end UserApp1SM_Idle() */
+
+static void UserApp1SM_Exercise_Idle(void) {
+  static u8 au8Name[] = "will";
+  
+  static u8 u8NameCount = 0;
+  static u8 i = 0;
+  static u8 j = 0;
+    
+  if(WasButtonPressed(BUTTON3)){
+    ButtonAcknowledge(BUTTON3);
+    u8NameCount *= 10;
+  }
+    
+  while(i < G_u8DebugScanfCharCount){
+    if(G_au8DebugScanfBuffer[i] == au8Name[j]){
+      j++;
+      // Successfully reached end of name
+      if(j == 4){
+        u8NameCount++;
+        u8* au8LS = (u8*)malloc((u8NameCount + 1) * sizeof(u8));
+        u8* au8RS = (u8*)malloc((u8NameCount + 3) * sizeof(u8));
+
+        //au8LS[0] = '\r';
+        //au8LS[1] = '\n';
+        for(u8 i = 0; i < u8NameCount; i++) {
+          au8LS[i] = '*';
+        }
+        au8LS[u8NameCount] = '\0';
+        //au8LS[u8NameCount + 3] = '\0';
+        
+        for(u8 i = 0; i < u8NameCount; i++) {
+          au8RS[i] = '*';
+        }  
+        au8RS[u8NameCount] = '\r';
+        au8RS[u8NameCount + 1] = '\n';
+        au8RS[u8NameCount + 2] = '\0';
+        
+        DebugPrintf("\r\n");
+        DebugPrintf(au8LS);
+        /*for(u8 i = 0; i < u8NameCount; i++){
+          DebugPrintf("*");
+        } */
+        DebugPrintNumber((u32) u8NameCount);
+        /*for(u8 i = 0; i < u8NameCount; i++){
+          DebugPrintf("*");
+        }        
+        DebugPrintf("\r\n\0");*/
+        DebugPrintf(au8LS);
+        DebugLineFeed();
+        j = 0;
+        free(au8LS);
+        free(au8RS);
+       }
+    } else {
+      // Reset letter matching count
+      j = 0;
+    }
+    i++;
+  }
+}
+
      
 
 /*-------------------------------------------------------------------------------------------------------------------*/

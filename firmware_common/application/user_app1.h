@@ -47,7 +47,8 @@ void UserApp1RunActiveState(void);
 /***********************************************************************************************************************
 State Machine Declarations
 ***********************************************************************************************************************/
-static void UserApp1SM_Idle(void);    
+static void UserApp1SM_Module_Idle(void);    
+static void UserApp1SM_Exercise_Idle(void);
 static void UserApp1SM_Error(void);         
 
 
@@ -55,7 +56,7 @@ static void UserApp1SM_Error(void);
 /**********************************************************************************************************************
 Constants / Definitions
 **********************************************************************************************************************/
-
+#define USER1_INPUT_BUFFER_SIZE (u16)(DEBUG_SCANF_BUFFER_SIZE + 1)
 
 #endif /* __USER_APP1_H */
 
