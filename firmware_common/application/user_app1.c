@@ -1,16 +1,16 @@
 /*!*********************************************************************************************************************
-@file user_app1.c                                                                
+@file find_it.c                                                                
 @brief User's tasks / applications are written here.  This description
 should be replaced by something specific to the task.
 
 ----------------------------------------------------------------------------------------------------------------------
-To start a new task using this user_app1 as a template:
- 1. Copy both user_app1.c and user_app1.h to the Application directory
+To start a new task using this find_it as a template:
+ 1. Copy both find_it.c and find_it.h to the Application directory
  2. Rename the files yournewtaskname.c and yournewtaskname.h
  3. Add yournewtaskname.c and yournewtaskname.h to the Application Include and Source groups in the IAR project
- 4. Use ctrl-h (make sure "Match Case" is checked) to find and replace all instances of "user_app1" with "yournewtaskname"
- 5. Use ctrl-h to find and replace all instances of "UserApp1" with "YourNewTaskName"
- 6. Use ctrl-h to find and replace all instances of "USER_APP1" with "YOUR_NEW_TASK_NAME"
+ 4. Use ctrl-h (make sure "Match Case" is checked) to find and replace all instances of "find_it" with "yournewtaskname"
+ 5. Use ctrl-h to find and replace all instances of "FindIt" with "YourNewTaskName"
+ 6. Use ctrl-h to find and replace all instances of "FIND_IT" with "YOUR_NEW_TASK_NAME"
  7. Add a call to YourNewTaskNameInitialize() in the init section of main
  8. Add a call to YourNewTaskNameRunActiveState() in the Super Loop section of main
  9. Update yournewtaskname.h per the instructions at the top of yournewtaskname.h
@@ -31,8 +31,8 @@ PUBLIC FUNCTIONS
 - NONE
 
 PROTECTED FUNCTIONS
-- void UserApp1Initialize(void)
-- void UserApp1RunActiveState(void)
+- void FindItInitialize(void)
+- void FindItRunActiveState(void)
 
 
 **********************************************************************************************************************/
@@ -41,10 +41,10 @@ PROTECTED FUNCTIONS
 
 /***********************************************************************************************************************
 Global variable definitions with scope across entire project.
-All Global variable names shall start with "G_<type>UserApp1"
+All Global variable names shall start with "G_<type>FindIt"
 ***********************************************************************************************************************/
 /* New variables */
-volatile u32 G_u32UserApp1Flags;                          /*!< @brief Global state flags */
+volatile u32 G_u32FindItFlags;                          /*!< @brief Global state flags */
 
 
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -57,11 +57,12 @@ extern volatile u32 G_u32ApplicationFlags;                /*!< @brief From main.
 
 /***********************************************************************************************************************
 Global variable definitions with scope limited to this local application.
-Variable names shall start with "UserApp1_<type>" and be declared as static.
+Variable names shall start with "FindIt_<type>" and be declared as static.
 ***********************************************************************************************************************/
-static fnCode_type UserApp1_pfStateMachine;               /*!< @brief The state machine function pointer */
-//static u32 UserApp1_u32Timeout;                           /*!< @brief Timeout counter used across states */
-
+static fnCode_type FindIt_pfStateMachine;               /*!< @brief The state machine function pointer */
+//static u32 FindIt_u32Timeout;                           /*!< @brief Timeout counter used across states */
+static u8 FindIt_au8WelcomeMessage[] = "Welcome to Find It!!";
+static u8 FindIt_au8NumPlayerMessage[] = "Select the number of players below";
 
 /**********************************************************************************************************************
 Function Definitions
@@ -76,7 +77,7 @@ Function Definitions
 /*--------------------------------------------------------------------------------------------------------------------*/
 
 /*!--------------------------------------------------------------------------------------------------------------------
-@fn void UserApp1Initialize(void)
+@fn void FindItInitialize(void)
 
 @brief
 Initializes the State Machine and its variables.
@@ -90,24 +91,29 @@ Promises:
 - NONE
 
 */
-void UserApp1Initialize(void)
+void FindItInitialize(void)
 {
+  // Clear the lcd
+  LcdCommand(LCD_CLEAR_CMD);
+  LcdMessage(LINE2_START_ADDR, "1");
+  LcdMessage(LINE2_END_ADDR, "2");
+  LcdMessage(LINE1_START_ADDR, FindIt_au8NumPlayerMessage);
   /* If good initialization, set state to Idle */
   if( 1 )
   {
-    UserApp1_pfStateMachine = UserApp1SM_Idle;
+    FindIt_pfStateMachine = FindItSM_Idle;
   }
   else
   {
     /* The task isn't properly initialized, so shut it down and don't run */
-    UserApp1_pfStateMachine = UserApp1SM_Error;
+    FindIt_pfStateMachine = FindItSM_Error;
   }
 
-} /* end UserApp1Initialize() */
+} /* end FindItInitialize() */
 
   
 /*!----------------------------------------------------------------------------------------------------------------------
-@fn void UserApp1RunActiveState(void)
+@fn void FindItRunActiveState(void)
 
 @brief Selects and runs one iteration of the current state in the state machine.
 
@@ -121,11 +127,11 @@ Promises:
 - Calls the function to pointed by the state machine function pointer
 
 */
-void UserApp1RunActiveState(void)
+void FindItRunActiveState(void)
 {
-  UserApp1_pfStateMachine();
+  FindIt_pfStateMachine();
 
-} /* end UserApp1RunActiveState */
+} /* end FindItRunActiveState */
 
 
 /*------------------------------------------------------------------------------------------------------------------*/
@@ -137,22 +143,67 @@ void UserApp1RunActiveState(void)
 State Machine Function Definitions
 **********************************************************************************************************************/
 /*-------------------------------------------------------------------------------------------------------------------*/
-/* What does this state do? */
-static void UserApp1SM_Idle(void)
+/* Waits for a user to choose single or multiplayer game */
+static void FindItSM_Idle(void)
 {
-    
-} /* end UserApp1SM_Idle() */
+  static u16 counter = 0;
+  counter++;
+  
+  if(counter == 250) {
+    counter = 0;
+    LcdCommand(LCD_CURSOR_RT_CMD);
+  }
+#if 0
+  // Display Button options
+  
+  static u8 u8ToggleMessage = 0;
+  static u16 u16Counter = 0;
+  
+  // Reset counter every second and toggle message
+  if(u16Counter == U16_ONE_SECOND_COUNTER_PERIOD) {
+    u16Counter = 0;
+    u8ToggleMessage ^= 1;
+  }
+  
+  // Display the welcome and player selection method in 1s intervals
+  if(u16Counter == 0) {
+    if(u8ToggleMessage == 0) {
+      LcdMessage(LINE1_START_ADDR, FindIt_au8WelcomeMessage);
+    } else {
+      LcdMessage(LINE1_START_ADDR, FindIt_au8NumPlayerMessage);
+    }
+  }
+  
+  u16Counter++;
+  
+
+  // If button0 was pressed go to shuffling state
+  if(WasButtonPressed(BUTTON0)) {
+    ButtonAcknowledge(BUTTON0);
+    //FindIt_pfStateMachine = FindItSM_Shuffle;
+  } 
+  // If button3 was pressed go to player select state
+  if(WasButtonPressed(BUTTON3)) {
+    ButtonAcknowledge(BUTTON3);
+    //FindIt_pfStateMachine = FindItSM_PlayerSelect;
+  }
+#endif
+  
+  
+} /* end FindItSM_Idle() */
      
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Handle an error */
-static void UserApp1SM_Error(void)          
+static void FindItSM_Error(void)          
 {
   
-} /* end UserApp1SM_Error() */
+} /* end FindItSM_Error() */
 
 
-
+/*--------------------------------------------------------------------------------------------------------------------*/
+static void FindItSM_PlayerSelect(void){}
+static void FindItSM_Shuffle(void){}
 
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* End of File                                                                                                        */
