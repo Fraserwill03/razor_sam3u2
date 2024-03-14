@@ -42,7 +42,7 @@ void FindItRunActiveState(void);
 /*------------------------------------------------------------------------------------------------------------------*/
 /*! @privatesection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
-
+void FindIt_ShuffleSymbols();
 
 /***********************************************************************************************************************
 State Machine Declarations
@@ -51,6 +51,7 @@ static void FindItSM_Welcome(void);
 static void FindItSM_Idle(void);    
 static void FindItSM_Error(void);
 static void FindItSM_PlayerSelect(void);
+static void FindItSM_InitGame(void);
 static void FindItSM_SinglePlayer(void);
 static void FindItSM_TwoPlayer(void);
 
@@ -69,7 +70,7 @@ Constants / Definitions
 
 #define U8_SYMBOLS_PER_CARD (u8) 4
 #define U8_DECK_SIZE (u8) (U8_SYMBOLS_PER_CARD * U8_SYMBOLS_PER_CARD - U8_SYMBOLS_PER_CARD + 1)
-#define U8_NUM_SYMBOLS (u8) 26
+#define U8_NUM_SYMBOLS (u8) 26 // 26 as I am currently just using the capital alphabet as my symbols
 
 #define U16_ONE_SECOND_COUNTER_PERIOD (u16) 1000
 

@@ -38,6 +38,7 @@ PROTECTED FUNCTIONS
 **********************************************************************************************************************/
 
 #include "configuration.h"
+#include "stdlib.h"
 
 /***********************************************************************************************************************
 Global variable definitions with scope across entire project.
@@ -61,8 +62,8 @@ Variable names shall start with "FindIt_<type>" and be declared as static.
 ***********************************************************************************************************************/
 static fnCode_type FindIt_pfStateMachine;               /*!< @brief The state machine function pointer */
 //static u32 FindIt_u32Timeout;                           /*!< @brief Timeout counter used across states */
-static u8 au8Symbols[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'};
-static u8 au8Deck[U8_DECK_SIZE][U8_SYMBOLS_PER_CARD];
+static u8 FindIt_au8Symbols[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'};
+static u8 FindIt_au8Deck[U8_DECK_SIZE][U8_SYMBOLS_PER_CARD];
 
 
 
@@ -135,6 +136,41 @@ void FindItRunActiveState(void)
 /*! @privatesection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
 
+/*!--------------------------------------------------------------------------------------------------------------------
+@fn void FindIt_ShuffleSymbols()
+
+@brief Shuffles the symbols array using a version of the Fisher-Yates shuffle algorithm 
+(https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
+
+*/
+void FindIt_ShuffleSymbols()
+{
+  if (U8_NUM_SYMBOLS > 1) {
+        u8 i;
+        for (i = 0; i < U8_NUM_SYMBOLS - 1; i++) {
+          u8 j = i + rand() / (RAND_MAX / (U8_NUM_SYMBOLS - i) + 1);
+          u8 t = FindIt_au8Symbols[j];
+          FindIt_au8Symbols[j] = FindIt_au8Symbols[i];
+          FindIt_au8Symbols[i] = t;
+        }
+    }
+}
+
+/*!--------------------------------------------------------------------------------------------------------------------
+@fn void FindIt_MakeDeck()
+
+@brief uses the shuffled symbol array to create a deck with those symbols
+
+*/
+void FindIt_MakeDeck()
+{
+  for (int i = 0; i < U8_DECK_SIZE; i++) {
+        FindIt_ShuffleSymbols();
+        for (int j = 0; j < U8_SYMBOLS_PER_CARD; j++) {
+            FindIt_au8Deck[i][j] = FindIt_au8Symbols[j];
+        }
+    }
+}
 
 /**********************************************************************************************************************
 State Machine Function Definitions
@@ -240,6 +276,32 @@ static void FindItSM_Error(void)
 
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void FindItSM_PlayerSelect(void){}
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* Initializes the deck & counts down */
+static void FindItSM_InitGame(void)          
+{
+  static u8 u8DeckInitialized;
+  
+  if(!u8DeckInitialized) {
+    srand(G_u32SystemTime1ms);
+    FindIt_MakeDeck();    
+  }
+  else {
+    static u32 u32CountDownStart;
+    
+    if(IsTimeUp(&u32CountDownStart, 3300)) {
+      LcdMessage(LINE1_START_ADDR, "GO!");
+      FindIt_pfStateMachine = FindItSM_SinglePlayer;
+    } else if (IsTimeUp(&u32CountDownStart, 2300)) {
+      LcdMessage(LINE1_START_ADDR, "1");
+    } else if (IsTimeUp(&u32CountDownStart, 1300)) {
+      LcdMessage(LINE1_START_ADDR, "2");
+    } else if (IsTimeUp(&u32CountDownStart, 300)) {
+      LcdMessage(LINE1_START_ADDR, "3");
+    }
+  }
+} /* end FindItSM_InitGame() */
 
 
 /*-------------------------------------------------------------------------------------------------------------------*/
