@@ -47,10 +47,10 @@ void FindItRunActiveState(void);
 /***********************************************************************************************************************
 State Machine Declarations
 ***********************************************************************************************************************/
+static void FindItSM_Welcome(void);
 static void FindItSM_Idle(void);    
 static void FindItSM_Error(void);
 static void FindItSM_PlayerSelect(void);
-static void FindItSM_Shuffle(void);
 static void FindItSM_SinglePlayer(void);
 static void FindItSM_TwoPlayer(void);
 
@@ -69,7 +69,7 @@ Constants / Definitions
 
 #define U8_SYMBOLS_PER_CARD (u8) 4
 #define U8_DECK_SIZE (u8) (U8_SYMBOLS_PER_CARD * U8_SYMBOLS_PER_CARD - U8_SYMBOLS_PER_CARD + 1)
-#define U8_NUM_SYMBOLS (u8) U8_DECK_SIZE
+#define U8_NUM_SYMBOLS (u8) 26
 
 #define U16_ONE_SECOND_COUNTER_PERIOD (u16) 1000
 

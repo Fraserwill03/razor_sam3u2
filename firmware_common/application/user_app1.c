@@ -61,8 +61,10 @@ Variable names shall start with "FindIt_<type>" and be declared as static.
 ***********************************************************************************************************************/
 static fnCode_type FindIt_pfStateMachine;               /*!< @brief The state machine function pointer */
 //static u32 FindIt_u32Timeout;                           /*!< @brief Timeout counter used across states */
-static u8 FindIt_au8WelcomeMessage[] = "Welcome to Find It!!";
-static u8 FindIt_au8NumPlayerMessage[] = "Select the number of players below";
+static u8 au8Symbols[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'};
+static u8 au8Deck[U8_DECK_SIZE][U8_SYMBOLS_PER_CARD];
+
+
 
 /**********************************************************************************************************************
 Function Definitions
@@ -93,15 +95,10 @@ Promises:
 */
 void FindItInitialize(void)
 {
-  // Clear the lcd
-  LcdCommand(LCD_CLEAR_CMD);
-  LcdMessage(LINE2_START_ADDR, "1");
-  LcdMessage(LINE2_END_ADDR, "2");
-  LcdMessage(LINE1_START_ADDR, FindIt_au8NumPlayerMessage);
   /* If good initialization, set state to Idle */
   if( 1 )
   {
-    FindIt_pfStateMachine = FindItSM_Idle;
+    FindIt_pfStateMachine = FindItSM_Welcome;
   }
   else
   {
@@ -143,52 +140,92 @@ void FindItRunActiveState(void)
 State Machine Function Definitions
 **********************************************************************************************************************/
 /*-------------------------------------------------------------------------------------------------------------------*/
+/* Welcomes the player to the game */
+static void FindItSM_Welcome(void) 
+{
+  // Message definintions:         01234567890123456789
+  static u8 au8BoardWelcomeMessage[] = "Welcome to Find It!!";
+  static u8 au8DebugWelcomeMessage[] = "Welcome to Find it!\n";
+  static u8 au8DebugInstructions[] = "Please select the number of players\n\r";
+  
+  static u16 u16WelcomeMessageCounter;
+  
+  //Print Welcome Message to LCD
+  if(u16WelcomeMessageCounter == 0) {
+    for(u8 i = 0; i < 20; i++) {
+      DebugLineFeed();
+    }
+    DebugPrintf(au8DebugWelcomeMessage);
+    DebugLineFeed();
+    LcdMessage(LINE1_START_ADDR, au8BoardWelcomeMessage);
+  }
+  else if (u16WelcomeMessageCounter == 5000){
+    // Setting LCD message with button labels for next state
+    LcdMessage(LINE2_START_ADDR, "1                  2");
+    // Sending debug message with instruction
+    DebugPrintf(au8DebugInstructions);
+    DebugLineFeed();
+    FindIt_pfStateMachine  = FindItSM_Idle;
+  }
+  u16WelcomeMessageCounter++;
+  
+}
+/*-------------------------------------------------------------------------------------------------------------------*/
 /* Waits for a user to choose single or multiplayer game */
 static void FindItSM_Idle(void)
 {
-  static u16 counter = 0;
-  counter++;
+  //Message definition
+                                   //0123456789012345678901234567890123456789
+  static u8 au8NumPlayerMessage[] = "Select the number of players below:     ";
+  static u8 au8Selection1[] = "1 player mode selected\n\r";
+  static u8 au8Selection2[] = "2 player mode selected\n\r";
   
-  if(counter == 250) {
-    counter = 0;
-    LcdCommand(LCD_CURSOR_RT_CMD);
-  }
-#if 0
-  // Display Button options
+  static u32 u32ScrollTimer;
+  u8 au8Temp[41]; 
+  static u8 u8ResetIndex = 0;
+  static u8 u8Index = 0;
   
-  static u8 u8ToggleMessage = 0;
-  static u16 u16Counter = 0;
-  
-  // Reset counter every second and toggle message
-  if(u16Counter == U16_ONE_SECOND_COUNTER_PERIOD) {
-    u16Counter = 0;
-    u8ToggleMessage ^= 1;
-  }
-  
-  // Display the welcome and player selection method in 1s intervals
-  if(u16Counter == 0) {
-    if(u8ToggleMessage == 0) {
-      LcdMessage(LINE1_START_ADDR, FindIt_au8WelcomeMessage);
-    } else {
-      LcdMessage(LINE1_START_ADDR, FindIt_au8NumPlayerMessage);
+    // Scrolling message
+    // Sourced from ascii_board_test.c
+  if(IsTimeUp(&u32ScrollTimer, 200))
+  {
+    u32ScrollTimer = G_u32SystemTime1ms;
+    au8Temp[40] = NULL;
+    u8Index = u8ResetIndex;
+    for(u8 i = 0; i < 40; i++)
+    { 
+      if( u8Index == 40)
+      {
+        u8Index = 0; 
+      }
+      au8Temp[u8Index] = au8NumPlayerMessage[i];
+      u8Index++;
     }
-  }
-  
-  u16Counter++;
-  
+    
+    LcdMessage(LINE1_START_ADDR, au8Temp);
+    
+    if(u8ResetIndex == 0)
+    {
+      u8ResetIndex = 41;
+    }
 
-  // If button0 was pressed go to shuffling state
+    u8ResetIndex--;
+  }
+
+  // If button0 was pressed go to singl player state
   if(WasButtonPressed(BUTTON0)) {
     ButtonAcknowledge(BUTTON0);
-    //FindIt_pfStateMachine = FindItSM_Shuffle;
+    LcdCommand(LCD_CLEAR_CMD);
+    DebugPrintf(au8Selection1);
+    FindIt_pfStateMachine = FindItSM_SinglePlayer;
   } 
   // If button3 was pressed go to player select state
   if(WasButtonPressed(BUTTON3)) {
     ButtonAcknowledge(BUTTON3);
-    //FindIt_pfStateMachine = FindItSM_PlayerSelect;
-  }
-#endif
-  
+    LcdCommand(LCD_CLEAR_CMD);
+    DebugPrintf(au8Selection2);
+    FindIt_pfStateMachine = FindItSM_PlayerSelect;
+  }  
   
 } /* end FindItSM_Idle() */
      
@@ -203,8 +240,15 @@ static void FindItSM_Error(void)
 
 /*--------------------------------------------------------------------------------------------------------------------*/
 static void FindItSM_PlayerSelect(void){}
-static void FindItSM_Shuffle(void){}
 
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* Single player game state */
+static void FindItSM_SinglePlayer(void)
+{
+  //TODO: Make a state that initializes the game and then counts down from 3 to start.
+  //TODO: Game state (Obviously)
+}
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* End of File                                                                                                        */
 /*--------------------------------------------------------------------------------------------------------------------*/
