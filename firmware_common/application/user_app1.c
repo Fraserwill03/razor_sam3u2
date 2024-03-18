@@ -75,6 +75,7 @@ Function Definitions
 /*! @publicsection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
 
+
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*! @protectedsection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -135,23 +136,43 @@ void FindItRunActiveState(void)
 /*------------------------------------------------------------------------------------------------------------------*/
 /*! @privatesection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
-
 /*!--------------------------------------------------------------------------------------------------------------------
-@fn void FindIt_ShuffleSymbols()
+@fn void FindIt_ShuffleArray()
 
 @brief Shuffles the symbols array using a version of the Fisher-Yates shuffle algorithm 
 (https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
 
 */
-void FindIt_ShuffleSymbols()
+void FindIt_ShuffleArray(u8 u8SymbolArr[], u8 u8ArrSize)
 {
-  if (U8_NUM_SYMBOLS > 1) {
-        u8 i;
-        for (i = 0; i < U8_NUM_SYMBOLS - 1; i++) {
-          u8 j = i + rand() / (RAND_MAX / (U8_NUM_SYMBOLS - i) + 1);
-          u8 t = FindIt_au8Symbols[j];
-          FindIt_au8Symbols[j] = FindIt_au8Symbols[i];
-          FindIt_au8Symbols[i] = t;
+      for (u8 i = 0; i < u8ArrSize - 1; i++) {
+        u8 j = i + rand() / (RAND_MAX / (u8ArrSize - i) + 1);
+        u8 t = u8SymbolArr[j];
+        u8SymbolArr[j] = u8SymbolArr[i];
+        u8SymbolArr[i] = t;
+      }
+}
+
+/*!--------------------------------------------------------------------------------------------------------------------
+@fn void FindIt_ShuffleDeck()
+
+@brief Shuffles the symbols array using a version of the Fisher-Yates shuffle algorithm 
+(https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
+Essentially the same algorithm as ShuffleArray(), but shuffles the 2D deck.
+
+*/
+void FindIt_shuffleDeck(void) {
+    for (u8 i = 0; i < U8_SYMBOLS_PER_CARD; i++) {
+        FindIt_ShuffleArray(FindIt_au8Deck[i], U8_SYMBOLS_PER_CARD); // Shuffle each row
+    }
+    //Shuffle the deck
+    for (u8 i = 0; i < U8_DECK_SIZE; i++) {
+        u8 j = i + rand() / (RAND_MAX / (U8_DECK_SIZE - i) + 1);
+        u8 temp[4];
+        for (u8 k = 0; k < U8_SYMBOLS_PER_CARD; k++) {
+            temp[k] = FindIt_au8Deck[i][k]; // Swap rows
+            FindIt_au8Deck[i][k] = FindIt_au8Deck[j][k];
+            FindIt_au8Deck[j][k] = temp[k];
         }
     }
 }
@@ -162,15 +183,54 @@ void FindIt_ShuffleSymbols()
 @brief uses the shuffled symbol array to create a deck with those symbols
 
 */
-void FindIt_MakeDeck()
+void FindIt_MakeDeck(void)
 {
-  for (int i = 0; i < U8_DECK_SIZE; i++) {
-        FindIt_ShuffleSymbols();
-        for (int j = 0; j < U8_SYMBOLS_PER_CARD; j++) {
-            FindIt_au8Deck[i][j] = FindIt_au8Symbols[j];
+  u8 n = U8_SYMBOLS_PER_CARD - 1;
+
+    // Shuffle symbols
+    FindIt_ShuffleArray(FindIt_au8Symbols, U8_NUM_SYMBOLS);
+
+    // Add first set of n+1 cards (e.g. 8 cards)
+    for (u8 i = 0; i < n + 1; i++) {
+        // Add new card with first symbol
+        FindIt_au8Deck[i][0] = 1;
+        // Add n+1 symbols on the card (e.g. 8 symbols)
+        for (u8 j = 0; j < n; j++) {
+            FindIt_au8Deck[i][j + 1] = (j + 1) + (i * n) + 1;
         }
     }
+
+    // Add n sets of n cards
+    for (u8 i = 0; i < n; i++) {
+        for (u8 j = 0; j < n; j++) {
+            // Append a new card with 1 symbol
+            FindIt_au8Deck[(n + 1) + (i * n) + j][0] = i + 2;
+            // Add n symbols on the card (e.g. 7 symbols)
+            for (u8 k = 0; k < n; k++) {
+                u8 val = (n + 1 + n * k + (i * k + j) % n) + 1;
+                FindIt_au8Deck[(n + 1) + (i * n) + j][k + 1] = val;
+            }
+        }
+    }
+  
+    // Shuffle the entire deck
+    FindIt_shuffleDeck();
 }
+
+/*!--------------------------------------------------------------------------------------------------------------------
+@fn void FindIt_CheckMatch()
+
+@brief Checks if a users guess was correct or not
+*/
+u8 FindIt_CheckMatch(u8 u8ConsoleIndex, u8 u8PlayerIndex, u8 u8Guess){
+  for(u8 i = 0; i < 4; i++) {
+    if(FindIt_au8Symbols[FindIt_au8Deck[u8ConsoleIndex][i]] == FindIt_au8Symbols[FindIt_au8Deck[u8PlayerIndex][u8Guess]])
+      return 1;
+  }
+  return 0;
+}
+
+
 
 /**********************************************************************************************************************
 State Machine Function Definitions
@@ -213,7 +273,7 @@ static void FindItSM_Idle(void)
   //Message definition
                                    //0123456789012345678901234567890123456789
   static u8 au8NumPlayerMessage[] = "Select the number of players below:     ";
-  static u8 au8Selection1[] = "1 player mode selected\n\r";
+  static u8 au8Selection1[] = "1 player mode selected\n\n\n\r";
   static u8 au8Selection2[] = "2 player mode selected\n\r";
   
   static u32 u32ScrollTimer;
@@ -253,7 +313,7 @@ static void FindItSM_Idle(void)
     ButtonAcknowledge(BUTTON0);
     LcdCommand(LCD_CLEAR_CMD);
     DebugPrintf(au8Selection1);
-    FindIt_pfStateMachine = FindItSM_SinglePlayer;
+    FindIt_pfStateMachine = FindItSM_InitGame;
   } 
   // If button3 was pressed go to player select state
   if(WasButtonPressed(BUTTON3)) {
@@ -282,23 +342,32 @@ static void FindItSM_PlayerSelect(void){}
 static void FindItSM_InitGame(void)          
 {
   static u8 u8DeckInitialized;
+  static u32 u32CountDownStart;
+  
+  u8* au8LcdCountDown[4] = {
+   //01234567890123456789
+    "         3!         ",
+    "         2!         ",
+    "         1!         ",
+    "         GO         "
+  };
+  u8 au8DebugCountDown;
   
   if(!u8DeckInitialized) {
     srand(G_u32SystemTime1ms);
-    FindIt_MakeDeck();    
+    FindIt_MakeDeck();
+    u8DeckInitialized ^= 1;
   }
-  else {
-    static u32 u32CountDownStart;
-    
-    if(IsTimeUp(&u32CountDownStart, 3300)) {
-      LcdMessage(LINE1_START_ADDR, "GO!");
-      FindIt_pfStateMachine = FindItSM_SinglePlayer;
-    } else if (IsTimeUp(&u32CountDownStart, 2300)) {
-      LcdMessage(LINE1_START_ADDR, "1");
-    } else if (IsTimeUp(&u32CountDownStart, 1300)) {
-      LcdMessage(LINE1_START_ADDR, "2");
-    } else if (IsTimeUp(&u32CountDownStart, 300)) {
-      LcdMessage(LINE1_START_ADDR, "3");
+  else {    
+    static u8 u8Index;
+    if(IsTimeUp(&u32CountDownStart, 1000)) {
+      LcdMessage(LINE1_START_ADDR, au8LcdCountDown[u8Index]);
+      u32CountDownStart = G_u32SystemTime1ms;
+      
+      if(u8Index == 3) {            //01234567890123456789
+        FindIt_pfStateMachine = FindItSM_SinglePlayer;
+      }
+      u8Index++;
     }
   }
 } /* end FindItSM_InitGame() */
@@ -308,9 +377,98 @@ static void FindItSM_InitGame(void)
 /* Single player game state */
 static void FindItSM_SinglePlayer(void)
 {
-  //TODO: Make a state that initializes the game and then counts down from 3 to start.
-  //TODO: Game state (Obviously)
+  static u8 u8PlayerCardIndex;
+  static u8 u8DeckCardIndex = 1;
+  static u8 u8PlayerScore;
+  static u8 u8RoundNumber = 1;
+  
+  static u8 messageSent;
+  
+  if(u8RoundNumber > 11) {
+    FindIt_pfStateMachine = FindItSM_GameOver;
+    LcdCommand(LCD_CLEAR_CMD);
+    return;
+  }
+  if(!messageSent) {
+    u8 au8DeckCard[] = {
+      ' ', ' ', ' ',
+      FindIt_au8Symbols[FindIt_au8Deck[u8DeckCardIndex][0]], ' ', ' ',
+      FindIt_au8Symbols[FindIt_au8Deck[u8DeckCardIndex][1]], ' ', ' ',
+      FindIt_au8Symbols[FindIt_au8Deck[u8DeckCardIndex][2]], ' ', ' ',
+      FindIt_au8Symbols[FindIt_au8Deck[u8DeckCardIndex][3]], '\r'
+    };
+    DebugPrintf(au8DeckCard);
+    u8 au8SymbolOne[2] = {FindIt_au8Symbols[FindIt_au8Deck[u8PlayerCardIndex][0]], '\0'};
+    u8 au8SymbolTwo[2] = {FindIt_au8Symbols[FindIt_au8Deck[u8PlayerCardIndex][1]], '\0'};
+    u8 au8SymbolThree[2] = {FindIt_au8Symbols[FindIt_au8Deck[u8PlayerCardIndex][2]], '\0'};
+    u8 au8SymbolFour[2] = {FindIt_au8Symbols[FindIt_au8Deck[u8PlayerCardIndex][3]], '\0'};
+    LcdMessage(LINE2_START_ADDR, au8SymbolOne);
+    LcdMessage(LINE2_START_ADDR + 6, au8SymbolTwo);
+    LcdMessage(LINE2_START_ADDR + 13, au8SymbolThree);
+    LcdMessage(LINE2_END_ADDR, au8SymbolFour);
+    
+    messageSent ^= 1;
+  }
+  
+  if(WasButtonPressed(BUTTON0)) {
+    ButtonAcknowledge(BUTTON0);
+    if(FindIt_CheckMatch(u8DeckCardIndex, u8PlayerCardIndex, 0)) {
+      LcdMessage(LINE1_START_ADDR, "      CORRECT!      ");
+      u8PlayerScore++;
+    } else {
+      LcdMessage(LINE1_START_ADDR, "     INCORRECT!     ");
+    }
+    u8PlayerCardIndex++;
+    u8DeckCardIndex++;
+    u8RoundNumber++;
+    messageSent^= 1;
+  } else if (WasButtonPressed(BUTTON1)) {
+    ButtonAcknowledge(BUTTON1);
+    if(FindIt_CheckMatch(u8DeckCardIndex, u8PlayerCardIndex, 1)) {
+      LcdMessage(LINE1_START_ADDR, "      CORRECT!      ");
+      u8PlayerScore++;
+    } else {
+      LcdMessage(LINE1_START_ADDR, "     INCORRECT!     ");
+    }
+    u8PlayerCardIndex++;
+    u8DeckCardIndex++;
+    u8RoundNumber++;
+    messageSent^= 1;
+  } else if (WasButtonPressed(BUTTON2)) {
+    ButtonAcknowledge(BUTTON2);
+    if(FindIt_CheckMatch(u8DeckCardIndex, u8PlayerCardIndex, 2)) {
+      LcdMessage(LINE1_START_ADDR, "      CORRECT!      ");
+      u8PlayerScore++;
+    } else {
+      LcdMessage(LINE1_START_ADDR, "     INCORRECT!     ");
+    }
+    u8PlayerCardIndex++;
+    u8DeckCardIndex++;
+    u8RoundNumber++;
+    messageSent^= 1;
+  } else if (WasButtonPressed(BUTTON3)) {
+    ButtonAcknowledge(BUTTON3);
+    if(FindIt_CheckMatch(u8DeckCardIndex, u8PlayerCardIndex, 3)) {
+      LcdMessage(LINE1_START_ADDR, "      CORRECT!      ");
+      u8PlayerScore++;
+    } else {
+      LcdMessage(LINE1_START_ADDR, "     INCORRECT!     ");
+    }
+    u8PlayerCardIndex++;
+    u8DeckCardIndex++;
+    u8RoundNumber++;
+    messageSent^= 1;
+  }
 }
+
+
+/*--------------------------------------------------------------------------------------------------------------------*/
+/* Game state to display score and ask user to play again */
+static void FindItSM_GameOver(void) {
+  LcdCommand(LCD_CLEAR_CMD);
+  LcdMessage(LINE1_START_ADDR, "Your score was: ");
+}
+
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* End of File                                                                                                        */
 /*--------------------------------------------------------------------------------------------------------------------*/
