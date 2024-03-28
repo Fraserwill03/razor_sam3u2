@@ -392,6 +392,7 @@ static void FindItSM_InitGame(void)
     }
     FindIt_MakeDeck();
     u8DeckInitialized ^= 1;
+    u32CountDownStart = G_u32SystemTime1ms - 900;
   }
   else {    
     static u8 u8Index;
