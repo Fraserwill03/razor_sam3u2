@@ -193,11 +193,11 @@ void FindIt_MakeDeck(void)
     // Shuffle symbols
     FindIt_ShuffleArray(FindIt_au8Symbols, U8_NUM_SYMBOLS);
 
-    // Add first set of n+1 cards (e.g. 8 cards)
+    // Add first set of n+1 cards (e.g. 4 cards)
     for (u8 i = 0; i < n + 1; i++) {
         // Add new card with first symbol
         FindIt_au8Deck[i][0] = 1;
-        // Add n+1 symbols on the card (e.g. 8 symbols)
+        // Add n+1 symbols on the card (e.g. 4 symbols)
         for (u8 j = 0; j < n; j++) {
             FindIt_au8Deck[i][j + 1] = (j + 1) + (i * n) + 1;
         }
@@ -218,6 +218,7 @@ void FindIt_MakeDeck(void)
   
     // Shuffle the entire deck
     FindIt_shuffleDeck();
+    FindIt_shuffleDeck();
 }
 
 /*!--------------------------------------------------------------------------------------------------------------------
@@ -233,6 +234,35 @@ u8 FindIt_CheckMatch(u8 u8ConsoleIndex, u8 u8PlayerIndex, u8 u8Guess){
   return 0;
 }
 
+/*!--------------------------------------------------------------------------------------------------------------------
+@fn void FindIt_HandleCorrect()
+
+@brief Handles a correct guess
+*/
+void FindIt_HandleCorrect(u8* u8LcdFlag, u32* u32LcdTimer){
+  LcdMessage(LINE1_START_ADDR, "      CORRECT!      ");
+  FindIt_u8PlayerScore++;
+  LedOn(LCD_GREEN);
+  LedOff(LCD_RED);
+  LedOff(LCD_BLUE);
+  *u8LcdFlag = 1;
+  *u32LcdTimer = G_u32SystemTime1ms;
+}
+
+/*!--------------------------------------------------------------------------------------------------------------------
+@fn void FindIt_HandleIncorrect()
+
+@brief Handles an incorrect guess
+*/
+void FindIt_HandleIncorrect(u8* u8LcdFlag, u32* u32LcdTimer){
+  LcdMessage(LINE1_START_ADDR, "     INCORRECT!     ");
+  LedOn(LCD_RED);
+  LedOff(LCD_GREEN);
+  LedOff(LCD_BLUE);
+  *u8LcdFlag = 1;
+  *u32LcdTimer = G_u32SystemTime1ms;
+}
+
 
 
 /**********************************************************************************************************************
@@ -245,7 +275,7 @@ static void FindItSM_Welcome(void)
   // Message definintions:         01234567890123456789
   static u8 au8BoardWelcomeMessage[] = "Welcome to Find It!!";
   static u8 au8DebugWelcomeMessage[] = "Welcome to Find it!\n";
-  static u8 au8DebugInstructions[] = "Please select the number of players\n\r";
+  static u8 au8DebugInstructions[] = "Press the left most button to start!\n\r";
   
   static u16 u16WelcomeMessageCounter;
   
@@ -260,7 +290,7 @@ static void FindItSM_Welcome(void)
   }
   else if (u16WelcomeMessageCounter == 3000){
     // Setting LCD message with button labels for next state
-    LcdMessage(LINE2_START_ADDR, "1                  2");
+    LcdMessage(LINE2_START_ADDR, "START               ");
     // Sending debug message with instruction
     DebugPrintf(au8DebugInstructions);
     DebugLineFeed();
@@ -276,9 +306,8 @@ static void FindItSM_Idle(void)
 {
   //Message definition
                                    //0123456789012345678901234567890123456789
-  static u8 au8NumPlayerMessage[] = "Select the number of players below:     ";
-  static u8 au8Selection1[] = "1 player mode selected\n\n\n\r";
-  static u8 au8Selection2[] = "2 player mode selected\n\r";
+  static u8 au8NumPlayerMessage[] = "Press the left most button to start:    ";
+  static u8 au8Selection1[] = "   Get Ready!       \r";
   
   static u32 u32ScrollTimer;
   u8 au8Temp[41]; 
@@ -312,10 +341,13 @@ static void FindItSM_Idle(void)
     u8ResetIndex--;
   }
 
-  // If button0 was pressed go to singl player state
+  // If button0 was pressed go to single player state
   if(WasButtonPressed(BUTTON0)) {
     ButtonAcknowledge(BUTTON0);
     LcdCommand(LCD_CLEAR_CMD);
+    for(u8 i = 0; i < 30; i++) {
+      DebugLineFeed(); 
+    }
     DebugPrintf(au8Selection1);
     FindIt_pfStateMachine = FindItSM_InitGame;
     
@@ -325,13 +357,6 @@ static void FindItSM_Idle(void)
     u8Index = 0;
     
   } 
-  // If button3 was pressed go to player select state
-  if(WasButtonPressed(BUTTON3)) {
-    ButtonAcknowledge(BUTTON3);
-    LcdCommand(LCD_CLEAR_CMD);
-    DebugPrintf(au8Selection2);
-    FindIt_pfStateMachine = FindItSM_PlayerSelect;
-  }  
   
 } /* end FindItSM_Idle() */
      
@@ -343,9 +368,6 @@ static void FindItSM_Error(void)
   
 } /* end FindItSM_Error() */
 
-
-/*--------------------------------------------------------------------------------------------------------------------*/
-static void FindItSM_PlayerSelect(void){}
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Initializes the deck & counts down */
@@ -362,7 +384,6 @@ static void FindItSM_InitGame(void)
     "         1!         ",
     "         GO         "
   };
-  u8 au8DebugCountDown;
   
   if(!u8DeckInitialized) {
     if(!u8RandSeeded) {
@@ -381,7 +402,14 @@ static void FindItSM_InitGame(void)
       if(u8Index == 3) {           
         FindIt_pfStateMachine = FindItSM_SinglePlayer;
         u8DeckInitialized = 0;
-        u32CountDownStart = 0;
+        u32CountDownStart = 0;   
+        
+        //Acknowledge any incidental button presses
+        ButtonAcknowledge(BUTTON0);
+        ButtonAcknowledge(BUTTON1);
+        ButtonAcknowledge(BUTTON2);
+        ButtonAcknowledge(BUTTON3);
+        
         FindIt_u32GameStartTime = G_u32SystemTime1s;
         FindIt_u8PlayerScore = 0;
         u8Index = 0;
@@ -397,6 +425,8 @@ static void FindItSM_InitGame(void)
 /* Single player game state */
 static void FindItSM_SinglePlayer(void)
 {
+  static u32 u32LcdTimer;
+  static u8 u8LcdColourOn;
   static u8 u8PlayerCardIndex;
   static u8 u8DeckCardIndex = 1;
   static u8 u8RoundNumber = 1;
@@ -406,14 +436,26 @@ static void FindItSM_SinglePlayer(void)
   // Move to game over state if user went through entire deck
   // OR if 60 seconds have passed since game started
   if((u8RoundNumber > U8_DECK_SIZE - 1) || (G_u32SystemTime1s - FindIt_u32GameStartTime >= 60)) {
+    // Set state to GameOver state
     FindIt_pfStateMachine = FindItSM_GameOver;
+    
+    // Track time to finish
     FindIt_u32GameEndTime = G_u32SystemTime1s;
+    
+    // Clear Lcd, print to debug, and reset static vars
     LcdCommand(LCD_CLEAR_CMD);
-    DebugPrintf("Game Over!     \r\n");
+    DebugPrintf("   Game Over!     \r");
     u8PlayerCardIndex = 0;
     u8DeckCardIndex = 1;
     u8RoundNumber = 1;
     messageSent = 0;
+    
+    //Reset Lcd backlight
+    LedOn(LCD_RED);
+    LedOn(LCD_GREEN);
+    LedOn(LCD_BLUE);
+    u8LcdColourOn = 0;
+    
     return;
   }    
   
@@ -441,11 +483,11 @@ static void FindItSM_SinglePlayer(void)
   if(WasButtonPressed(BUTTON0)) {
     ButtonAcknowledge(BUTTON0);
     if(FindIt_CheckMatch(u8DeckCardIndex, u8PlayerCardIndex, 0)) {
-      LcdMessage(LINE1_START_ADDR, "      CORRECT!      ");
-      FindIt_u8PlayerScore++;
+      FindIt_HandleCorrect(&u8LcdColourOn, &u32LcdTimer);
     } else {
-      LcdMessage(LINE1_START_ADDR, "     INCORRECT!     ");
+      FindIt_HandleIncorrect(&u8LcdColourOn, &u32LcdTimer);
     }
+    
     u8PlayerCardIndex++;
     u8DeckCardIndex++;
     u8RoundNumber++;
@@ -453,11 +495,11 @@ static void FindItSM_SinglePlayer(void)
   } else if (WasButtonPressed(BUTTON1)) {
     ButtonAcknowledge(BUTTON1);
     if(FindIt_CheckMatch(u8DeckCardIndex, u8PlayerCardIndex, 1)) {
-      LcdMessage(LINE1_START_ADDR, "      CORRECT!      ");
-      FindIt_u8PlayerScore++;
+      FindIt_HandleCorrect(&u8LcdColourOn, &u32LcdTimer);
     } else {
-      LcdMessage(LINE1_START_ADDR, "     INCORRECT!     ");
+      FindIt_HandleIncorrect(&u8LcdColourOn, &u32LcdTimer);
     }
+    
     u8PlayerCardIndex++;
     u8DeckCardIndex++;
     u8RoundNumber++;
@@ -465,11 +507,11 @@ static void FindItSM_SinglePlayer(void)
   } else if (WasButtonPressed(BUTTON2)) {
     ButtonAcknowledge(BUTTON2);
     if(FindIt_CheckMatch(u8DeckCardIndex, u8PlayerCardIndex, 2)) {
-      LcdMessage(LINE1_START_ADDR, "      CORRECT!      ");
-      FindIt_u8PlayerScore++;
+      FindIt_HandleCorrect(&u8LcdColourOn, &u32LcdTimer);
     } else {
-      LcdMessage(LINE1_START_ADDR, "     INCORRECT!     ");
+      FindIt_HandleIncorrect(&u8LcdColourOn, &u32LcdTimer);
     }
+    
     u8PlayerCardIndex++;
     u8DeckCardIndex++;
     u8RoundNumber++;
@@ -477,15 +519,23 @@ static void FindItSM_SinglePlayer(void)
   } else if (WasButtonPressed(BUTTON3)) {
     ButtonAcknowledge(BUTTON3);
     if(FindIt_CheckMatch(u8DeckCardIndex, u8PlayerCardIndex, 3)) {
-      LcdMessage(LINE1_START_ADDR, "      CORRECT!      ");
-      FindIt_u8PlayerScore++;
+      FindIt_HandleCorrect(&u8LcdColourOn, &u32LcdTimer);
     } else {
-      LcdMessage(LINE1_START_ADDR, "     INCORRECT!     ");
+      FindIt_HandleIncorrect(&u8LcdColourOn, &u32LcdTimer);
     }
+    
     u8PlayerCardIndex++;
     u8DeckCardIndex++;
     u8RoundNumber++;
     messageSent^= 1;
+  }
+  
+    
+  if(u8LcdColourOn && IsTimeUp(&u32LcdTimer, 250)){
+    LedOn(LCD_RED);
+    LedOn(LCD_GREEN);
+    LedOn(LCD_BLUE);
+    u8LcdColourOn = 0;
   }
 }
 
@@ -503,7 +553,6 @@ static void FindItSM_GameOver(void) {
   
   static u8 au8ScoreMessage1[] = "SCORE: ";
   static u8 au8ScoreMessage3[] = " IN ";
-  static u8 au8ScoreMessage5[] = "s!";
   
   static u8 au8PlayAgainMessage[] = "    PLAY AGAIN??    ";
   
@@ -555,19 +604,23 @@ static void FindItSM_GameOver(void) {
   
  //If button 0 was pressed restart the game
   if(WasButtonPressed(BUTTON0)) {
+    u8MessageIndex = 0;
     ButtonAcknowledge(BUTTON0);
     LcdCommand(LCD_CLEAR_CMD);
     FindIt_pfStateMachine = FindItSM_InitGame;
+    DebugPrintf("   Get Ready!       \r");
   } 
   
   //If button 3 was pressed go to idle
   if(WasButtonPressed(BUTTON3)) {
+    u8MessageIndex = 0;
     ButtonAcknowledge(BUTTON3);
     LcdCommand(LCD_CLEAR_CMD);
     FindIt_pfStateMachine = FindItSM_Welcome;
     LcdMessage(LINE1_START_ADDR, "Welcome to Find It!!");
-    DebugPrintf("\n\n\nWelcome to Find It!\r\n\n\n");
+    DebugPrintf("Welcome to Find It!\r\n\n\n");
   }
+
 }
 
 /*--------------------------------------------------------------------------------------------------------------------*/

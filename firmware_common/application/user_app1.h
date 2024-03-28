@@ -46,6 +46,8 @@ void FindIt_ShuffleArray(u8 u8SymbolArr[], u8 u8ArrSize);
 void FindIt_shuffleDeck(void);
 void FindIt_MakeDeck(void);
 u8 FindIt_CheckMatch(u8 u8ConsoleIndex, u8 u8PlayerIndex, u8 u8Guess);
+void FindIt_HandleCorrect(u8* u8LcdFlag, u32* u32LcdTimer);
+void FindIt_HandleIncorrect(u8* u8LcdFlag, u32* u32LcdTimer);
 
 
 /***********************************************************************************************************************
@@ -54,10 +56,8 @@ State Machine Declarations
 static void FindItSM_Welcome(void);
 static void FindItSM_Idle(void);    
 static void FindItSM_Error(void);
-static void FindItSM_PlayerSelect(void);
 static void FindItSM_InitGame(void);
 static void FindItSM_SinglePlayer(void);
-static void FindItSM_TwoPlayer(void);
 static void FindItSM_GameOver(void);
 
 
